@@ -1,0 +1,15 @@
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+WORKDIR /src
+
+COPY ["src/pipeline", "src/pipeline"]
+COPY ["src/shared", "src/shared"]
+COPY ["Directory.Build.props", "./"]
+
+RUN dotnet restore src/pipeline/Pulses.Pipeline.csproj
+RUN dotnet publish src/pipeline/Pulses.Pipeline.csproj -c Release -o /app/publish --no-restore
+
+FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS runtime
+WORKDIR /app
+COPY --from=build /app/publish .
+EXPOSE 5001
+ENTRYPOINT ["dotnet", "Pulses.Pipeline.dll"]

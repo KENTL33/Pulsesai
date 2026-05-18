@@ -1,0 +1,105 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: pulses
+      POSTGRES_PASSWORD: pulses_secret
+      POSTGRES_DB: pulses_analytics
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pulses"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  pipeline:
+    build:
+      context: .
+      dockerfile: Dockerfile.pipeline
+    ports:
+      - "5001:5001"
+    environment:
+      ASPNETCORE_URLS: http://+:5001
+      PostgreSQL__Host: postgres
+      PostgreSQL__Port: 5432
+      PostgreSQL__User: pulses
+      PostgreSQL__Password: pulses_secret
+      PostgreSQL__Database: pulses_analytics
+      SignalR__HubUrl: http://api:5000/hubs/analytics
+      Redis__Host: redis
+      Redis__Port: 6379
+      Pipeline__Port: 5001
+      EventBuffer__Capacity: 20000
+      EventFlush__IntervalMs: 50
+      Aggregation__WindowMs: 500
+      DemoData__Enabled: true
+      DemoData__ApiBaseUrl: http://api:5000
+      DemoData__IngestUrl: http://localhost:5001/ingest
+      ASPNETCORE_ENVIRONMENT: Development
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      api:
+        condition: service_healthy
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    ports:
+      - "5002:5000"
+    environment:
+      ASPNETCORE_URLS: http://+:5000
+      ConnectionStrings__PostgreSQL: Host=postgres;Port=5432;Database=pulses_analytics;Username=pulses;Password=pulses_secret
+      ConnectionStrings__Redis: redis:6379,abortConnect=false
+      Redis__UseBackplane: false
+      Redis__Host: redis
+      Redis__Port: 6379
+      API__Port: 5000
+      ASPNETCORE_ENVIRONMENT: Development
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "dotnet", "--info"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  frontend:
+    image: node:20-alpine
+    working_dir: /app
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./src/client:/app
+    environment:
+      VITE_API_URL: http://api:5000
+      VITE_SIGNALR_URL: http://localhost:5002/hubs/analytics
+    depends_on:
+      - api
+
+volumes:
+  postgres_data:
+  redis_data:

@@ -1,0 +1,49 @@
+# Build outputs
+bin/
+obj/
+dist/
+build/
+
+# .NET
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+.vs/
+*.DotSettings.user
+
+# Node
+node_modules/
+.pnp
+.pnp.js
+.yarn/
+
+# Client build
+src/client/dist/
+src/client/.parcel-cache/
+
+# Logs
+*.log
+logs/
+
+# Environment — never commit real secrets
+.env
+.env.local
+.env.*.local
+appsettings.*.local.json
+
+# IDE
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Load test artifacts
+load-test/results/
+
+# NuGet
+*.nupkg
+
+# Docker
+.dockerignore

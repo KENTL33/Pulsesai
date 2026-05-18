@@ -1,0 +1,15 @@
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+WORKDIR /src
+
+COPY ["src/api", "src/api"]
+COPY ["src/shared", "src/shared"]
+COPY ["Directory.Build.props", "./"]
+
+RUN dotnet restore src/api/Pulses.Api.csproj
+RUN dotnet publish src/api/Pulses.Api.csproj -c Release -o /app/publish --no-restore
+
+FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS runtime
+WORKDIR /app
+COPY --from=build /app/publish .
+EXPOSE 5000
+ENTRYPOINT ["dotnet", "Pulses.Api.dll"]
